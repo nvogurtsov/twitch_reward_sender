@@ -40,6 +40,36 @@ def action_menu():
         print(f"  {k}: {v}")
 
 
+def choose_reward(sender):
+    """Выбирает награду из списка и возвращает её."""
+    if not sender.rewards:
+        print("❌ Список наград пустой")
+        return None
+
+    sender.list_available_rewards()
+
+    while True:
+        try:
+            choice = int(input("Введите номер награды: "))
+            if 1 <= choice <= len(sender.rewards):
+                return sender.rewards[choice - 1]
+            print("❌ Неверный номер награды")
+        except ValueError:
+            print("❌ Введите число")
+
+
+def ask_send_count():
+    """Спрашивает, сколько раз отправить награду."""
+    while True:
+        try:
+            count = int(input("Сколько раз отправить награду: "))
+            if count > 0:
+                return count
+            print("❌ Число должно быть больше нуля")
+        except ValueError:
+            print("❌ Введите число")
+
+
 if __name__ == "__main__":
     config = load_config()
     
@@ -66,7 +96,12 @@ if __name__ == "__main__":
             elif action == '2':
                 sender.list_available_rewards()
             elif action == '3':
-                sender.send_reward(1, 5)
+                reward = choose_reward(sender)
+                if reward is None:
+                    continue
+
+                count = ask_send_count()
+                sender.send_reward(reward, count)
             elif action == 'x':
                 print("Exit....")
                 exit(0)

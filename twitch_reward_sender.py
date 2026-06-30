@@ -139,6 +139,7 @@ class TwitchRewardSender:
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+            self.channel_id = data.get('id')
             self.rewards = data['rewards']
         except Exception as e:
             print(f"❌ Ошибка загрузки файла: {e}")
@@ -165,7 +166,7 @@ class TwitchRewardSender:
                         "cost": reward["cost"],
                         "pricingType": "POINTS",
                         "prompt": reward["prompt"],
-                        "rewardID": reward["reward_id"],
+                        "rewardID": reward["id"],
                         "title": reward["title"],
                         "transactionID": transaction_id
                     }
