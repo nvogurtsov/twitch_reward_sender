@@ -1,5 +1,8 @@
 config.json
 rewards/*
+build/*
+dist/*
 __pycache__/
 *.pyc
 .env
+twitch_reward_sender.spec

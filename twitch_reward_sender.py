@@ -9,7 +9,7 @@ class TwitchRewardSender:
         self.oauth_token = oauth_token.strip() if isinstance(oauth_token, str) else ""
         self.streamer_name = streamer_name.strip() if isinstance(streamer_name, str) else ""
         self.channel_id = None
-        self.rewards_dir = 'rewards'
+        self.rewards_dir = os.path.abspath(os.path.join(os.getcwd(), 'rewards'))
         self.rewards = []
         
         self.headers = {
