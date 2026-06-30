@@ -1,35 +1,39 @@
 import json
 import os
+import sys
+from pathlib import Path
 
 from twitch_reward_sender import TwitchRewardSender
 
 # ============== ИСПОЛЬЗОВАНИЕ ==============
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+CONFIG_PATH = PROJECT_ROOT / "config.json"
+
+
 def load_config():
-    """Загружает конфигурацию из config.json"""
-    config_path = 'config.json'
-    if not os.path.exists(config_path):
-        print(f"Ошибка: Файл {config_path} не найден!")
+    """Загружает конфигурацию из config.json."""
+    if not CONFIG_PATH.exists():
+        print(f"Ошибка: Файл {CONFIG_PATH} не найден!")
         print("Создайте config.json на основе config.example.json")
-        exit(1)
-    
+        sys.exit(1)
+
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with CONFIG_PATH.open("r", encoding="utf-8") as f:
             config = json.load(f)
     except Exception as e:
         print(f"Ошибка при чтении config.json: {e}")
-        exit(1)
+        sys.exit(1)
 
     if not isinstance(config, dict):
         print("Ошибка: Файл config.json должен содержать JSON-объект")
-        exit(1)
-    
-    # Проверяем наличие токена
-    oauth_token = config.get('OAUTH_TOKEN')
+        sys.exit(1)
+
+    oauth_token = config.get("OAUTH_TOKEN")
     if not isinstance(oauth_token, str) or not oauth_token.strip() or oauth_token == "twitch-oauth-token-here":
         print("Ошибка: Укажите реальный OAUTH_TOKEN в config.json!")
-        exit(1)
-    
+        sys.exit(1)
+
     return config
 
 def action_menu():
@@ -83,48 +87,54 @@ def ask_send_count():
             print("❌ Введите число")
 
 
-if __name__ == "__main__":
+def boot_sender() -> int:
     config = load_config()
-    
-    OAUTH_TOKEN = config['OAUTH_TOKEN']
-    
+    oauth_token = config["OAUTH_TOKEN"]
+
     streamer_name = input("Ввидите имя стримера: ").strip()
     if not streamer_name:
         print("❌ Имя стримера не может быть пустым")
-        exit(1)
+        return 1
 
-    # Инициализация
-    sender = TwitchRewardSender(OAUTH_TOKEN, streamer_name)
-    if os.path.exists(os.path.join(sender.rewards_dir, f"{sender.streamer_name}.json")):
+    sender = TwitchRewardSender(oauth_token, streamer_name)
+    reward_file = sender.rewards_dir / f"{sender.streamer_name}.json"
+
+    if reward_file.exists():
         sender.load_rewards_from_file()
     else:
-        if sender.fetch_channel_rewards() is not None and len(sender.rewards) > 0:
+        if sender.fetch_channel_rewards() and sender.rewards:
             sender.save_rewards_to_file()
 
     try:
         while True:
             action_menu()
-            action = input("Выберите действие: ")
+            action = input("Выберите действие: ").strip()
 
-            if action == '1':
-                if sender.fetch_channel_rewards() is not None:
+            if action == "1":
+                if sender.fetch_channel_rewards():
                     sender.save_rewards_to_file()
-            elif action == '2':
+            elif action == "2":
                 sender.list_available_rewards()
-            elif action == '3':
+            elif action == "3":
                 reward = choose_reward(sender)
                 if reward is None:
                     continue
 
                 count = ask_send_count()
-                success, _ = sender.send_reward(reward, count)
+                success, response = sender.send_reward(reward, count)
                 if success:
-                    print("✅ Награда отправлена")
-            elif action == 'x':
+                    print("✅ Награды отправлены")
+                elif response is not None:
+                    print("❌ Не удалось отправить награды. Подробнее в ответе Twitch.")
+            elif action == "x":
                 print("Exit....")
-                exit(0)
+                return 0
             else:
-                action_menu()
+                print("❌ Неверная команда")
     except KeyboardInterrupt:
         print("Exit....")
-        exit(1)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(boot_sender())
