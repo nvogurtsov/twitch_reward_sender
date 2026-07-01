@@ -7,8 +7,12 @@ from twitch_reward_sender import TwitchRewardSender
 
 # ============== ИСПОЛЬЗОВАНИЕ ==============
 
-PROJECT_ROOT = Path(__file__).resolve().parent
-CONFIG_PATH = PROJECT_ROOT / "config.json"
+if getattr(sys, "frozen", False):
+    CONFIG_DIR = Path(sys.executable).resolve().parent
+else:
+    CONFIG_DIR = Path(__file__).resolve().parent
+
+CONFIG_PATH = CONFIG_DIR / "config.json"
 
 
 def load_config():
