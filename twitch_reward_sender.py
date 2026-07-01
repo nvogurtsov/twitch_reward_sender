@@ -1,4 +1,5 @@
 import json
+import time
 import uuid
 from pathlib import Path
 
@@ -313,5 +314,80 @@ class TwitchRewardSender:
             except Exception as e:
                 print(f"❌ Исключение при отправке награды: {e}")
                 return False, None
+
+        return True, None
+
+    def send_chat_message(self, message, count):
+        if not self.channel_id:
+            print("❌ Не удалось определить channel_id для отправки сообщения")
+            return False, None
+
+        if not isinstance(message, str) or not message.strip():
+            print("❌ Сообщение не может быть пустым")
+            return False, None
+
+        if not isinstance(count, int) or count <= 0:
+            print("❌ Количество отправок должно быть положительным числом")
+            return False, None
+
+        for _ in range(count):
+            payload = [{
+                "operationName": "sendChatMessage",
+                "variables": {
+                    "input": {
+                        "channelID": str(self.channel_id),
+                        "message": message,
+                        "nonce": self.generate_transaction_id(),
+                        "replyParentMessageID": None,
+                    }
+                },
+                "extensions": {
+                    "persistedQuery": {
+                        "version": 1,
+                        "sha256Hash": "0435464292cf380ed4b3d905e4edcb73078362e82c06367a5b2181c76c822fa2",
+                    }
+                },
+            }]
+
+            try:
+                response = requests.post(
+                    self.base_url,
+                    headers=self.headers,
+                    json=payload,
+                    timeout=10,
+                )
+
+                if response.status_code != 200:
+                    print(f"❌ Ошибка отправки сообщения: {response.status_code}")
+                    print(f"  {response.text[:200]}")
+                    return False, None
+
+                try:
+                    result = response.json()
+                except ValueError as e:
+                    print(f"❌ Ошибка разбора ответа при отправке сообщения: {e}")
+                    return False, None
+
+                if isinstance(result, dict):
+                    errors = result.get("errors")
+                    drop_reason = (
+                        result.get("data", {})
+                        .get("sendChatMessage", {})
+                        .get("dropReason")
+                    )
+
+                    if errors:
+                        print(f"❌ Twitch вернул ошибку при отправке сообщения: {errors}")
+                        return False, result
+
+                    if drop_reason:
+                        print(f"❌ Сообщение отброшено: {drop_reason}")
+                        return False, result
+
+            except Exception as e:
+                print(f"❌ Исключение при отправке сообщения: {e}")
+                return False, None
+
+            time.sleep(0.2)
 
         return True, None

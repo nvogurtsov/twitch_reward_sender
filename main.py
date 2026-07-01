@@ -15,28 +15,46 @@ else:
 CONFIG_PATH = CONFIG_DIR / "config.json"
 
 
+def prompt_for_token() -> str:
+    while True:
+        token = input("Введите токен авторизации Twitch: ").strip()
+        if token:
+            return token
+        print("❌ Токен не может быть пустым")
+
+
+def save_config(config: dict) -> bool:
+    try:
+        with CONFIG_PATH.open("w", encoding="utf-8") as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"❌ Ошибка сохранения config.json: {e}")
+        return False
+
+
 def load_config():
     """Загружает конфигурацию из config.json."""
-    if not CONFIG_PATH.exists():
-        print(f"Ошибка: Файл {CONFIG_PATH} не найден!")
-        print("Создайте config.json на основе config.example.json")
-        sys.exit(1)
-
-    try:
-        with CONFIG_PATH.open("r", encoding="utf-8") as f:
-            config = json.load(f)
-    except Exception as e:
-        print(f"Ошибка при чтении config.json: {e}")
-        sys.exit(1)
+    config = {}
+    if CONFIG_PATH.exists():
+        try:
+            with CONFIG_PATH.open("r", encoding="utf-8") as f:
+                config = json.load(f)
+        except Exception as e:
+            print(f"❌ Ошибка при чтении config.json: {e}")
+            print("Будет предложено ввести OAUTH_TOKEN заново.")
+            config = {}
 
     if not isinstance(config, dict):
         print("Ошибка: Файл config.json должен содержать JSON-объект")
-        sys.exit(1)
+        config = {}
 
     oauth_token = config.get("OAUTH_TOKEN")
     if not isinstance(oauth_token, str) or not oauth_token.strip() or oauth_token == "twitch-oauth-token-here":
-        print("Ошибка: Укажите реальный OAUTH_TOKEN в config.json!")
-        sys.exit(1)
+        oauth_token = prompt_for_token()
+        config["OAUTH_TOKEN"] = oauth_token
+        if not save_config(config):
+            sys.exit(1)
 
     return config
 
@@ -45,6 +63,7 @@ def action_menu():
         1: "Загрузить/обновить награды",
         2: "Вывести список наград",
         3: "Отправить награды",
+        4: "Отправить сообщение в чат",
         "x": "Exit"
     }
     print("Выберите действие")
@@ -130,6 +149,18 @@ def boot_sender() -> int:
                     print("✅ Награды отправлены")
                 elif response is not None:
                     print("❌ Не удалось отправить награды. Подробнее в ответе Twitch.")
+            elif action == "4":
+                message = input("Введите текст сообщения: ").strip()
+                if not message:
+                    print("❌ Сообщение не может быть пустым")
+                    continue
+
+                count = ask_send_count()
+                success, response = sender.send_chat_message(message, count)
+                if success:
+                    print("✅ Сообщение отправлено")
+                elif response is not None:
+                    print("❌ Не удалось отправить сообщение. Подробнее в ответе Twitch.")
             elif action == "x":
                 print("Exit....")
                 return 0
