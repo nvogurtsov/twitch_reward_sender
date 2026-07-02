@@ -23,18 +23,16 @@ def prompt_for_token() -> str:
         print("❌ Токен не может быть пустым")
 
 
-def save_config(config: dict) -> bool:
+def save_config(config):
     try:
         with CONFIG_PATH.open("w", encoding="utf-8") as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
-        return True
     except Exception as e:
         print(f"❌ Ошибка сохранения config.json: {e}")
-        return False
 
 
+"""Загружает конфигурацию из config.json."""
 def load_config():
-    """Загружает конфигурацию из config.json."""
     config = {}
     if CONFIG_PATH.exists():
         try:
@@ -43,14 +41,10 @@ def load_config():
         except Exception as e:
             print(f"❌ Ошибка при чтении config.json: {e}")
             print("Будет предложено ввести OAUTH_TOKEN заново.")
-            config = {}
-
-    if not isinstance(config, dict):
-        print("Ошибка: Файл config.json должен содержать JSON-объект")
-        config = {}
 
     oauth_token = config.get("OAUTH_TOKEN")
-    if not isinstance(oauth_token, str) or not oauth_token.strip() or oauth_token == "twitch-oauth-token-here":
+
+    if not isinstance(oauth_token, str) or not oauth_token.strip():
         oauth_token = prompt_for_token()
         config["OAUTH_TOKEN"] = oauth_token
         if not save_config(config):
@@ -58,7 +52,9 @@ def load_config():
 
     return config
 
-def action_menu():
+
+"""Выводит меню действий"""
+def action_menu(point_balance):
     actions = {
         1: "Загрузить/обновить награды",
         2: "Вывести список наград",
@@ -66,17 +62,17 @@ def action_menu():
         4: "Отправить сообщение в чат",
         "x": "Exit"
     }
+    print(f"Кол-во баллов: {point_balance}")
     print("Выберите действие")
 
     for k, v in actions.items():
         print(f"  {k}: {v}")
 
 
+"""Выбирает награду из списка и возвращает её."""
 def choose_reward(sender):
-    """Выбирает награду из списка и возвращает её."""
     if not sender.rewards:
-        print("❌ Список наград пустой")
-        return None
+        sender.fetch_channel_rewards()
 
     sender.list_available_rewards()
 
@@ -94,11 +90,11 @@ def choose_reward(sender):
             print("❌ Введите число")
 
 
+"""Спрашивает, сколько раз отправить наград или сообщение, и возвращает число."""
 def ask_send_count():
-    """Спрашивает, сколько раз отправить награду."""
     while True:
         try:
-            count_text = input("Сколько раз отправить награду: ").strip()
+            count_text = input("Сколько раз отправить: ").strip()
             if not count_text:
                 print("❌ Введите число")
                 continue
@@ -120,17 +116,17 @@ def boot_sender() -> int:
         return 1
 
     sender = TwitchRewardSender(oauth_token, streamer_name)
-    reward_file = sender.rewards_dir / f"{sender.streamer_name}.json"
 
-    if reward_file.exists():
-        sender.load_rewards_from_file()
-    else:
-        if sender.fetch_channel_rewards() and sender.rewards:
-            sender.save_rewards_to_file()
+    # reward_file = sender.rewards_dir / f"{sender.streamer_name}.json"
+    # if reward_file.exists():
+    #     sender.load_rewards_from_file()
+
+    if sender.fetch_channel_rewards() and sender.rewards:
+        sender.save_rewards_to_file()
 
     try:
         while True:
-            action_menu()
+            action_menu(sender.point_balance)
             action = input("Выберите действие: ").strip()
 
             if action == "1":
@@ -144,11 +140,9 @@ def boot_sender() -> int:
                     continue
 
                 count = ask_send_count()
-                success, response = sender.send_reward(reward, count)
+                success = sender.send_reward(reward, count)
                 if success:
                     print("✅ Награды отправлены")
-                elif response is not None:
-                    print("❌ Не удалось отправить награды. Подробнее в ответе Twitch.")
             elif action == "4":
                 message = input("Введите текст сообщения: ").strip()
                 if not message:
@@ -156,11 +150,9 @@ def boot_sender() -> int:
                     continue
 
                 count = ask_send_count()
-                success, response = sender.send_chat_message(message, count)
+                success = sender.send_chat_message(message, count)
                 if success:
-                    print("✅ Сообщение отправлено")
-                elif response is not None:
-                    print("❌ Не удалось отправить сообщение. Подробнее в ответе Twitch.")
+                    print("✅ Сообщения отправлены")
             elif action == "x":
                 print("Exit....")
                 return 0
